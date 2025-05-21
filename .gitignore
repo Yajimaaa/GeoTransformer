@@ -9,3 +9,9 @@ weights/*
 pretrained
 data/Kitti/downsampled
 data/ModelNet/*.pkl
+
+# すべての .npy ファイルを無視
+*.npy
+
+# ただし data/ 内の .npy ファイルは除外（追跡対象にする）
+!data/*.npy
