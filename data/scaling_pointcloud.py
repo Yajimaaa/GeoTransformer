@@ -27,10 +27,18 @@ def scale_and_save_npy(input_path, output_path, scale_factor=40.0):
     print(f"Saved scaled data to: {output_path} (scale factor: {scale_factor})")
 
 if __name__ == "__main__":
-    input_np_path = "/home/masaruy/workspace/GeoTransformer/data/my_pointcloud/hole_pointcloud_filtered_9.npy"
-    output_np_path = "/home/masaruy/workspace/GeoTransformer/data/my_pointcloud/hole_pointcloud_filtered_9_scaled.npy"
+    input_np_path = "/home/masaruy/workspace/GeoTransformer/data/my_pointcloud/peg_pointcloud_filtered.npy"
+    output_np_path = input_np_path.replace(".npy", "_scaled.npy")
     scale_and_save_npy(
         input_path=input_np_path,
         output_path=output_np_path,
         scale_factor=40.0
     )
+    for i in range(0, 5):
+        input_np_path = f"/home/masaruy/workspace/GeoTransformer/data/my_pointcloud/hole_pointcloud_filtered_{i}.npy"
+        output_np_path = input_np_path.replace(".npy", "_scaled.npy")
+        scale_and_save_npy(
+            input_path=input_np_path,
+            output_path=output_np_path,
+            scale_factor=40.0
+        )
