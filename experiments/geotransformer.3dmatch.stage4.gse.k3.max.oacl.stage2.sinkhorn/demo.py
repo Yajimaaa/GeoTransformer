@@ -16,7 +16,7 @@ def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--src_file", required=True, help="src point cloud numpy file")
     parser.add_argument("--ref_file", required=True, help="src point cloud numpy file")
-    parser.add_argument("--gt_file", required=True, help="ground-truth transformation file")
+    parser.add_argument("--gt_file", required=False, help="ground-truth transformation file")
     parser.add_argument("--weights", required=True, help="model weights file")
     return parser
 
@@ -39,6 +39,14 @@ def load_data(args):
         data_dict["transform"] = transform.astype(np.float32)
 
     return data_dict
+
+def save_point_cloud_to_npy(pcd, filename):
+    """
+    Open3Dの点群オブジェクトから座標を取り出して.npyに保存
+    """
+    points = np.asarray(pcd.points)
+    np.save(filename, points)
+    print(f"Saved point cloud to {filename}")
 
 
 def main():
@@ -78,13 +86,15 @@ def main():
     src_pcd = make_open3d_point_cloud(src_points)
     src_pcd.estimate_normals()
     src_pcd.paint_uniform_color(get_color("custom_blue"))
-    draw_geometries(ref_pcd, src_pcd)
+    # draw_geometries(ref_pcd, src_pcd)
+    save_point_cloud_to_npy(src_pcd, "src_demo.npy")
     src_pcd = src_pcd.transform(estimated_transform)
-    draw_geometries(ref_pcd, src_pcd)
+    save_point_cloud_to_npy(src_pcd, "src_transform_demo.npy")
+    # draw_geometries(ref_pcd, src_pcd)
 
     # compute error
-    rre, rte = compute_registration_error(transform, estimated_transform)
-    print(f"RRE(deg): {rre:.3f}, RTE(m): {rte:.3f}")
+    # rre, rte = compute_registration_error(transform, estimated_transform)
+    # print(f"RRE(deg): {rre:.3f}, RTE(m): {rte:.3f}")
 
 
 if __name__ == "__main__":
