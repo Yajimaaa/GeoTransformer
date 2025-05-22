@@ -66,18 +66,20 @@ def main():
     model = create_model(cfg).cuda()
     state_dict = torch.load(args.weights)
     model.load_state_dict(state_dict["model"])
+    
+    with torch.no_grad():
+        model.eval()
+        # prediction
+        data_dict = to_cuda(data_dict)
+        output_dict = model(data_dict)
+        data_dict = release_cuda(data_dict)
+        output_dict = release_cuda(output_dict)
 
-    # prediction
-    data_dict = to_cuda(data_dict)
-    output_dict = model(data_dict)
-    data_dict = release_cuda(data_dict)
-    output_dict = release_cuda(output_dict)
-
-    # get results
-    ref_points = output_dict["ref_points"]
-    src_points = output_dict["src_points"]
-    estimated_transform = output_dict["estimated_transform"]
-    transform = data_dict["transform"]
+        # get results
+        ref_points = output_dict["ref_points"]
+        src_points = output_dict["src_points"]
+        estimated_transform = output_dict["estimated_transform"]
+        transform = data_dict["transform"]
 
     # visualization
     ref_pcd = make_open3d_point_cloud(ref_points)
@@ -87,7 +89,7 @@ def main():
     src_pcd.estimate_normals()
     src_pcd.paint_uniform_color(get_color("custom_blue"))
     # draw_geometries(ref_pcd, src_pcd)
-    save_point_cloud_to_npy(src_pcd, "src_demo.npy")
+    save_point_cloud_to_npy(ref_pcd, "ref_demo.npy")
     src_pcd = src_pcd.transform(estimated_transform)
     save_point_cloud_to_npy(src_pcd, "src_transform_demo.npy")
     # draw_geometries(ref_pcd, src_pcd)

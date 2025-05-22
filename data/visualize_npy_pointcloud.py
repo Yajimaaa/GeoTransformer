@@ -26,6 +26,7 @@ def visualize_multiple_npy_point_clouds(npy_paths:Optional[List[str]], colors:Op
     
 if __name__ == "__main__":
     # Example usage
-    # npy_paths = ["data/my_pointcloud/peg_pointcloud_filtered_scaled.npy", "data/my_pointcloud/peg_pointcloud_filtered_scaled_transform.npy"]
-    npy_paths = ["src_demo.npy", "src_transform_demo.npy"]
+    npy_paths = ["data/my_pointcloud/hole_pointcloud_filtered_1_scaled.npy", "data/my_pointcloud/hole_pointcloud_filtered_1_scaled_transform.npy"]
+    visualize_multiple_npy_point_clouds(npy_paths)
+    npy_paths = ["ref_demo.npy", "src_transform_demo.npy"]
     visualize_multiple_npy_point_clouds(npy_paths)
