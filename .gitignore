@@ -9,6 +9,7 @@ weights/*
 pretrained
 data/Kitti/downsampled
 data/ModelNet/*.pkl
+results/*.pkl
 
 # すべての .npy ファイルを無視
 *.npy
