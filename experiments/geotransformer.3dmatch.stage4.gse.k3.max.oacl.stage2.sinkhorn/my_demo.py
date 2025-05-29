@@ -9,6 +9,7 @@ from geotransformer.utils.data import registration_collate_fn_stack_mode
 from geotransformer.utils.torch import to_cuda, release_cuda
 from geotransformer.utils.open3d import make_open3d_point_cloud, get_color, draw_geometries
 from geotransformer.utils.registration import compute_registration_error
+from geotransformer.utils.my_data_utils import visualize_multiple_npy_point_clouds, getting_pointcloud_from_transform, calculate_translation_and_angle_error_SE2
 
 from config import make_cfg
 from model import create_model
@@ -42,43 +43,6 @@ def load_data(args):
         data_dict["transform"] = transform.astype(np.float32)
 
     return data_dict
-
-def visualize_multiple_npy_point_clouds(npy_pointcloud_list:Optional[List[NDArray]], colors:Optional[List[List[float]]]=None) -> None:
-    """
-    複数の.npy点群を同時に可視化する。
-
-    Args:
-        npy_pointcloud_list (list of np.ndarray): 各点群の座標データ（N x 3のnumpy配列）。
-        colors (list of list): 各点群の色（RGBリスト）。省略時は自動色。
-    """
-    pcds = []
-    default_colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]  # 赤・緑・青
-    for i, npy_points in enumerate(npy_pointcloud_list):
-        points = npy_points
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        pcd.estimate_normals()
-        color = colors[i] if colors else default_colors[i % len(default_colors)]
-        pcd.paint_uniform_color(color)
-        pcds.append(pcd)
-
-    o3d.visualization.draw_geometries(pcds)
-    
-def getting_pointcloud_from_transform(pointcloud: NDArray, transform_matrix: NDArray) -> NDArray:
-    """
-    点群を変換行列で変換する。
-
-    Args:
-        pointcloud (np.ndarray): 点群の座標データ（N x 3のnumpy配列）。
-        transform_matrix (np.ndarray): 変換行列（4 x 4のnumpy配列）。
-
-    Returns:
-        np.ndarray: 変換後の点群座標データ。
-    """
-    pointcloud_homogeneous = np.hstack((pointcloud, np.ones((pointcloud.shape[0], 1))))
-    transformed_pointcloud = pointcloud_homogeneous @ transform_matrix.T # numpyは行ベクトルなので、右から転置を掛ける（p' = Tp, p'^T = (Tp)^T = p^(T)T^T）
-    return transformed_pointcloud[:, :3]
-    
 
 # scale pcd data from 1 meter to 2.5cm
 def scale_pcd_data(input_pcd_data:NDArray, scale_factor=40.0) -> NDArray:
@@ -130,37 +94,6 @@ def scale_transform_matrix_back(input_transform_matrix:NDArray, scale_factor=40.
     scaled_transform_matrix[:3, 3] /= scale_factor
     return scaled_transform_matrix
 
-def calculate_translation_and_angle_error_SE2(
-    gt_transform: np.ndarray,
-    estimated_transform: np.ndarray,
-) -> NDArray:
-    """
-    Calculate translation and angle error between ground truth and estimated SE(2) transforms.
-
-    Args:
-        gt_transform (np.ndarray): Ground truth SE(2) transform matrix (4x4).
-        estimated_transform (np.ndarray): Estimated SE(2) transform matrix (4x4).
-
-    Returns:
-        tuple: Translation error (float), angle error in degrees (float).
-    """
-    # Extract translation
-    gt_translation = gt_transform[:2, 3]
-    estimated_translation = estimated_transform[:2, 3]
-    
-    translation_error = np.linalg.norm(gt_translation - estimated_translation)
-    translation_error = round(translation_error, 4)  # Round to 3 decimal places
-
-    # Extract rotation angle in radians
-    gt_angle = np.arctan2(gt_transform[1, 0], gt_transform[0, 0])
-    estimated_angle = np.arctan2(estimated_transform[1, 0], estimated_transform[0, 0])
-    
-    angle_error = np.rad2deg(np.abs(gt_angle - estimated_angle))
-    angle_error = round(angle_error, 4)  # Round to 3 decimal places
-    
-    total_error = np.array([translation_error, angle_error])
-
-    return total_error
 
 
 def main():
@@ -172,7 +105,7 @@ def main():
     with open(pickle_file_path, "rb") as f:
         result_data_dict: dict = pickle.load(f)
     
-    num_hole_initial_pose = 200
+    num_hole_initial_pose = result_data_dict["number_of_initial_hole_pose"]
     feature_transformed_peg_to_hole_pcd_list = [] # list of transformed src points
     feature_transformed_peg_to_peg_pcd_list = [] # list of feature transformed peg to hole point cloud
     feature_matching_transform_peg_to_hole_matrix_list = [] # list of transformed src points
@@ -212,7 +145,6 @@ def main():
         state_dict = torch.load(weight_path)
         model.load_state_dict(state_dict["model"])
         print("Model loaded successfully.")
-        
         with torch.no_grad():
             model.eval()
             # prediction
@@ -232,6 +164,7 @@ def main():
 
         feature_transformed_peg_to_hole_pcd_list.append(feature_transformed_peg_to_hole_pcd)
         feature_matching_transform_peg_to_hole_matrix_list.append(estimated_transform)
+        print(f"Finished {hole_pose_idx}-th hole inference")
         
         # peg to peg inference
         data_dict = {
@@ -261,7 +194,7 @@ def main():
             transform = data_dict["transform"]
             feature_transformed_peg_to_peg_pcd_scaled = getting_pointcloud_from_transform(src_points_transformed_scaled, estimated_transform_scaled)  # scale to 2.5cm
             feature_transformed_peg_to_peg_pcd = scale_pcd_data_back(feature_transformed_peg_to_peg_pcd_scaled, scale_factor=40.0)  # back to 1 meter
-        print("Finished inference.")
+        print(f"Finished {hole_pose_idx}-th peg inference")
 
         # # visualization
         # ref_pcd = make_open3d_point_cloud(ref_points_origin)
@@ -279,8 +212,7 @@ def main():
         
         feature_transformed_peg_to_peg_pcd_list.append(feature_transformed_peg_to_peg_pcd)
         feature_matching_transform_peg_to_peg_matrix_list.append(estimated_transform)
-        if hole_pose_idx == 0:
-            break
+
             
     result_data_dict["feature_matching_transformed_peg_to_peg_pcd_list"] = feature_transformed_peg_to_peg_pcd_list
     result_data_dict["feature_matching_transform_peg_to_peg_matrix_list"] = feature_matching_transform_peg_to_peg_matrix_list
